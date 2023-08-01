@@ -1,6 +1,8 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
+use std::path::PathBuf;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Platform {
     Windows,
@@ -28,12 +30,21 @@ pub fn get_target_platform() -> Platform {
 }
 
 #[must_use]
-pub fn get_xplm_flags() -> &'static [&'static str] {
-    match get_target_platform() {
-        Platform::Windows => &["IBM=1", "LIN=0", "APL=0"],
-        Platform::MacOs => &["IBM=0", "LIN=0", "APL=1"],
-        Platform::Linux => &["IBM=0", "LIN=1", "APL=0"],
-    }
+pub fn get_xplm_flags() -> Vec<&'static str> {
+    let mut platform_flags = match get_target_platform() {
+        Platform::Windows => vec!["IBM=1", "LIN=0", "APL=0"],
+        Platform::MacOs => vec!["IBM=0", "LIN=0", "APL=1"],
+        Platform::Linux => vec!["IBM=0", "LIN=1", "APL=0"],
+    };
+    platform_flags.extend([
+        "XPLM200=1",
+        "XPLM210=1",
+        "XPLM300=1",
+        "XPLM301=1",
+        "XPLM303=1",
+        "XPLM400=1",
+    ]);
+    platform_flags
 }
 
 #[must_use]
@@ -51,15 +62,24 @@ pub fn get_acfutils_bindgen_clang_args(
     xplane_sdk_path: &std::path::Path,
 ) -> Vec<String> {
     let mut args = Vec::new();
-    args.push(format!("-I{}/include", acfutils_path.display()));
-    args.push(format!(
-        "-I{}/{}/include",
-        acfutils_path.display(),
-        get_short_platform()
-    ));
-    args.push(format!("-I{}/CHeaders/XPLM", xplane_sdk_path.display()));
+    for include in get_acfutils_includes(acfutils_path, xplane_sdk_path) {
+        args.push(format!("-I{}", include.display()));
+    }
     for flag in get_xplm_flags() {
         args.push(format!("-D{flag}"));
     }
     args
+}
+
+#[must_use]
+pub fn get_acfutils_includes(
+    acfutils_path: &std::path::Path,
+    xplane_sdk_path: &std::path::Path,
+) -> Vec<PathBuf> {
+    vec![
+        acfutils_path.join("include"),
+        acfutils_path.join(get_short_platform()).join("include"),
+        xplane_sdk_path.join("CHeaders/XPLM"),
+        xplane_sdk_path.join("CHeaders/Widgets"),
+    ]
 }
