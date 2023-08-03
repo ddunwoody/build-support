@@ -1,13 +1,39 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
-use std::path::PathBuf;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Platform {
     Windows,
     MacOs,
     Linux,
+}
+
+impl Platform {
+    #[must_use]
+    pub fn short(&self) -> &str {
+        match self {
+            Platform::Windows => "mingw64",
+            Platform::MacOs => "mac64",
+            Platform::Linux => "lin64",
+        }
+    }
+
+    fn xplm_flags(self) -> Vec<String> {
+        let mut flags = match self {
+            Platform::Windows => vec!["-DIBM=1", "-DLIN=0", "-DAPL=0"],
+            Platform::MacOs => vec!["-DIBM=0", "-DLIN=0", "-DAPL=1"],
+            Platform::Linux => vec!["-DIBM=0", "-DLIN=1", "-DAPL=0"],
+        };
+        flags.extend([
+            "-DXPLM200=1",
+            "-DXPLM210=1",
+            "-DXPLM300=1",
+            "-DXPLM301=1",
+            "-DXPLM303=1",
+            "-DXPLM400=1",
+        ]);
+        flags.iter().map(ToString::to_string).collect()
+    }
 }
 
 impl From<String> for Platform {
@@ -30,56 +56,107 @@ pub fn get_target_platform() -> Platform {
 }
 
 #[must_use]
-pub fn get_xplm_flags() -> Vec<&'static str> {
-    let mut platform_flags = match get_target_platform() {
-        Platform::Windows => vec!["IBM=1", "LIN=0", "APL=0"],
-        Platform::MacOs => vec!["IBM=0", "LIN=0", "APL=1"],
-        Platform::Linux => vec!["IBM=0", "LIN=1", "APL=0"],
-    };
-    platform_flags.extend([
-        "XPLM200=1",
-        "XPLM210=1",
-        "XPLM300=1",
-        "XPLM301=1",
-        "XPLM303=1",
-        "XPLM400=1",
-    ]);
-    platform_flags
-}
-
-#[must_use]
-pub fn get_short_platform() -> &'static str {
-    match get_target_platform() {
-        Platform::Windows => "mingw64",
-        Platform::MacOs => "mac64",
-        Platform::Linux => "lin64",
-    }
-}
-
-#[must_use]
-pub fn get_acfutils_bindgen_clang_args(
+pub fn get_acfutils_cflags(
+    platform: Platform,
     acfutils_path: &std::path::Path,
     xplane_sdk_path: &std::path::Path,
 ) -> Vec<String> {
-    let mut args = Vec::new();
-    for include in get_acfutils_includes(acfutils_path, xplane_sdk_path) {
-        args.push(format!("-I{}", include.display()));
-    }
-    for flag in get_xplm_flags() {
-        args.push(format!("-D{flag}"));
-    }
+    let mut args = vec![
+        format!("-I{}/include", acfutils_path.display()),
+        format!("-I{}/{}/include", acfutils_path.display(), platform.short()),
+        format!("-I{}/CHeaders/XPLM", xplane_sdk_path.display()),
+        format!("-I{}/CHeaders/Widgets", xplane_sdk_path.display()),
+    ];
+    args.extend(
+        vec![
+            "-std=c99",
+            "-DGLEW_MX",
+            "-DCURL_STATICLIB",
+            "-DPCRE2_STATIC",
+            "-DPCRE2_CODE_UNIT_WIDTH=8",
+        ]
+        .iter()
+        .map(ToString::to_string),
+    );
+    let platform_args = match platform {
+        Platform::Windows => vec!["-D_WIN32_WINNT=0x0600", "-DLIBXML_STATIC"],
+        Platform::MacOs => vec!["-DLACF_GLEW_USE_NATIVE_TLS=0"],
+        Platform::Linux => vec!["-D_GNU_SOURCE"],
+    };
+    args.extend(platform_args.iter().map(ToString::to_string));
+    args.extend(platform.xplm_flags());
     args
 }
 
 #[must_use]
-pub fn get_acfutils_includes(
-    acfutils_path: &std::path::Path,
-    xplane_sdk_path: &std::path::Path,
-) -> Vec<PathBuf> {
-    vec![
-        acfutils_path.join("include"),
-        acfutils_path.join(get_short_platform()).join("include"),
-        xplane_sdk_path.join("CHeaders/XPLM"),
-        xplane_sdk_path.join("CHeaders/Widgets"),
-    ]
+pub fn get_acfutils_libs(platform: Platform) -> Vec<String> {
+    let mut libs = vec![
+        "acfutils", "lzma", "iconv", "cairo", "pixman-1", "freetype", "png16", "shp", "proj",
+    ];
+
+    if platform == Platform::Windows {
+        libs.push("glew32mx");
+    } else {
+        libs.push("GLEWmx");
+    }
+
+    libs.extend(vec!["curl", "ssl", "crypto"]);
+
+    if platform == Platform::Windows {
+        libs.push("gdi32");
+    }
+
+    libs.push("z");
+
+    if platform == Platform::Windows {
+        libs.extend(vec!["ws2_32", "crypt32"]);
+    }
+
+    if platform == Platform::Linux {
+        libs.push("pthread");
+    }
+
+    libs.extend(vec!["xml2", "pcre2-8"]);
+
+    if platform == Platform::Windows {
+        libs.extend(vec!["dbghelp", "psapi", "ssp", "bcrypt", "winmm"]);
+    }
+
+    if platform == Platform::Linux {
+        libs.push("clipboard");
+    }
+
+    if platform == Platform::MacOs {
+        libs.push("framework=OpenGL");
+    }
+
+    if platform == Platform::Linux {
+        libs.push("GL");
+    }
+
+    libs.iter().map(ToString::to_string).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{get_acfutils_cflags, get_acfutils_libs, Platform};
+    use std::path::Path;
+
+    #[test]
+    pub fn print_get_acfutils_cflags() {
+        let acfutils_path = Path::new("/acfutils");
+        let xplane_sdk_path = Path::new("/xplane_sdk");
+        let args = get_acfutils_cflags(Platform::MacOs, acfutils_path, xplane_sdk_path);
+        for arg in args {
+            println!("{arg}");
+        }
+    }
+
+    #[test]
+    pub fn print_get_acfutils_libs() {
+        let libs = get_acfutils_libs(Platform::Linux);
+        for lib in libs {
+            println!("{lib}");
+        }
+    }
 }
