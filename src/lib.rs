@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2023 David Dunwoody.
+ *
+ * All rights reserved.
+ */
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
