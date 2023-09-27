@@ -127,10 +127,6 @@ pub fn get_acfutils_libs(platform: Platform) -> Vec<String> {
         libs.extend(vec!["dbghelp", "psapi", "ssp", "bcrypt", "winmm"]);
     }
 
-    if platform == Platform::Linux {
-        libs.push("clipboard");
-    }
-
     if platform == Platform::MacOs {
         libs.push("framework=OpenGL");
     }
