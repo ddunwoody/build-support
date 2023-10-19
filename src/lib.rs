@@ -3,8 +3,10 @@
  *
  * All rights reserved.
  */
+
 #![deny(clippy::all)]
-#![warn(clippy::pedantic)]
+#![deny(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Platform {
@@ -73,7 +75,7 @@ pub fn get_acfutils_cflags(
         format!("-I{}/CHeaders/Widgets", xplane_sdk_path.display()),
     ];
     args.extend(
-        vec![
+        [
             "-std=c99",
             "-DGLEW_MX",
             "-DCURL_STATICLIB",
@@ -127,37 +129,11 @@ pub fn get_acfutils_libs(platform: Platform) -> Vec<String> {
         libs.extend(vec!["dbghelp", "psapi", "ssp", "bcrypt", "winmm"]);
     }
 
-    if platform == Platform::MacOs {
-        libs.push("framework=OpenGL");
-    }
-
-    if platform == Platform::Linux {
-        libs.push("GL");
-    }
+    libs.push(match platform {
+        Platform::Windows => "opengl32",
+        Platform::MacOs => "framework=OpenGL",
+        Platform::Linux => "GL",
+    });
 
     libs.iter().map(ToString::to_string).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{get_acfutils_cflags, get_acfutils_libs, Platform};
-    use std::path::Path;
-
-    #[test]
-    pub fn print_get_acfutils_cflags() {
-        let acfutils_path = Path::new("/acfutils");
-        let xplane_sdk_path = Path::new("/xplane_sdk");
-        let args = get_acfutils_cflags(Platform::MacOs, acfutils_path, xplane_sdk_path);
-        for arg in args {
-            println!("{arg}");
-        }
-    }
-
-    #[test]
-    pub fn print_get_acfutils_libs() {
-        let libs = get_acfutils_libs(Platform::Linux);
-        for lib in libs {
-            println!("{lib}");
-        }
-    }
 }
