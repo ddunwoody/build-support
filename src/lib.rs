@@ -76,7 +76,6 @@ pub fn get_acfutils_cflags(
     ];
     args.extend(
         [
-            "-std=c99",
             "-DGLEW_MX",
             "-DCURL_STATICLIB",
             "-DPCRE2_STATIC",
