@@ -25,6 +25,15 @@ impl Platform {
         }
     }
 
+    #[must_use]
+    pub fn long(&self) -> &str {
+        match self {
+            Platform::Windows => "win-64",
+            Platform::MacOs => "mac-64",
+            Platform::Linux => "linux-64",
+        }
+    }
+
     fn xplm_flags(self) -> Vec<String> {
         let mut flags = match self {
             Platform::Windows => vec!["-DIBM=1", "-DLIN=0", "-DAPL=0"],
