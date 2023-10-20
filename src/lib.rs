@@ -65,12 +65,12 @@ pub fn get_target_platform() -> Platform {
 #[must_use]
 pub fn get_acfutils_cflags(
     platform: Platform,
-    acfutils_path: &std::path::Path,
+    acfutils_redist_path: &std::path::Path,
     xplane_sdk_path: &std::path::Path,
 ) -> Vec<String> {
     let mut args = vec![
-        format!("-I{}/include", acfutils_path.display()),
-        format!("-I{}/{}/include", acfutils_path.display(), platform.short()),
+        format!("-I{}/include", acfutils_redist_path.display()),
+        format!("-I{}/{}/include", acfutils_redist_path.display(), platform.short()),
         format!("-I{}/CHeaders/XPLM", xplane_sdk_path.display()),
         format!("-I{}/CHeaders/Widgets", xplane_sdk_path.display()),
     ];
